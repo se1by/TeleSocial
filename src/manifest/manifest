@@ -1,0 +1,2 @@
+Manifest-Version: 1.0
+Class-Path: TeleSocial/lib/httpclient-4.1.2.jar TeleSocial/lib/httpcore-4.1.2.jar TeleSocial/lib/commons-logging-1.1.1.jar

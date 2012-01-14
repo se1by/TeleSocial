@@ -1,0 +1,12 @@
+name: TeleSocial
+version: 0.1
+description: TeleSocial!
+author: se1by
+website: http://www.live-craft.net
+
+main: me.se1by.TeleSocial.telesocial
+
+commands:
+    phone:
+        description: basic command
+        usage: /<command> <params>
