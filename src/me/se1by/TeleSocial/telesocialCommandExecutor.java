@@ -114,9 +114,11 @@ public class telesocialCommandExecutor implements CommandExecutor{
 			else if (args[0].equalsIgnoreCase("set") && args.length == 3 && sender.isOp()){
 				if(args[1].equalsIgnoreCase("appkey")){
 					setAppkey(args[2]);
+					return true;
 				}
 				else if (args[1].equalsIgnoreCase("baseurl")){
 					setBaseUrl(args[2]);
+					return true;
 				}
 			}
 			else{
