@@ -17,6 +17,7 @@ public class telesocialCommandExecutor implements CommandExecutor{
 	private String chatpre = basic.chatpre;
 	String pre = "[TeleSocial] ";
 	private YamlConfiguration players = YamlConfiguration.loadConfiguration(new File("plugins/TeleSocial/players.yml"));
+	private YamlConfiguration config = YamlConfiguration.loadConfiguration(new File("plugins/TeleSocial/config.yml"));
 	private HashMap<String, String> conferences;
 	
 	public telesocialCommandExecutor(telesocial telesocial) {
@@ -29,13 +30,12 @@ public class telesocialCommandExecutor implements CommandExecutor{
 		if(sender instanceof Player){
 			this.pre = chatpre;
 		}
-		Player p = (Player) sender; 
 		if(args.length > 0){
 			if(args[0].equalsIgnoreCase("register") && args.length == 2){
-				if(!isRegistered(p.getName())){
+				if(!isRegistered(sender.getName())){
 					String number = args[1];
-					String networkID = p.getName();
-					boolean reg = register(number, networkID, p);
+					String networkID = sender.getName();
+					boolean reg = register(number, networkID, sender);
 					if(reg){
 						sender.sendMessage(pre + "Registration complete!");
 					}
@@ -54,7 +54,7 @@ public class telesocialCommandExecutor implements CommandExecutor{
 				String number = args[2];
 				
 				if(!isRegistered(networkID)){
-					boolean reg = register(number, networkID, p);
+					boolean reg = register(number, networkID, sender);
 					if(reg){
 						sender.sendMessage(pre + "Registration complete!");
 					}
@@ -70,8 +70,8 @@ public class telesocialCommandExecutor implements CommandExecutor{
 			}
 			else if(args[0].equalsIgnoreCase("start") && args.length == 2){
 				String conference = args[1];
-				String networkID = players.getString(p.getName());
-				boolean start = startConference(conference, networkID, p);
+				String networkID = players.getString(sender.getName());
+				boolean start = startConference(conference, networkID, sender);
 				if(start){
 					sender.sendMessage(pre + "Conference " + conference + " started!");
 				}
@@ -91,7 +91,7 @@ public class telesocialCommandExecutor implements CommandExecutor{
 			}
 			else if(args[0].equalsIgnoreCase("join") && args.length == 2){
 				String conference = args[1];
-				boolean join = joinConference(conference, p);
+				boolean join = joinConference(conference, sender);
 				if(join){
 					sender.sendMessage(pre + "Joining conference " + conference + "...");
 				}
@@ -102,7 +102,7 @@ public class telesocialCommandExecutor implements CommandExecutor{
 			}
 			else if(args[0].equalsIgnoreCase("delete") && args.length == 2){
 				String conference = args[1];
-				boolean delete = deleteConference(conference, p);
+				boolean delete = deleteConference(conference, sender);
 				if(delete){
 					sender.sendMessage(pre + "Conference " + conference + " deleted!");
 				}
@@ -110,6 +110,14 @@ public class telesocialCommandExecutor implements CommandExecutor{
 					sender.sendMessage(pre + "Unable to delete conference " + conference + "!");
 				}
 				return true;
+			}
+			else if (args[0].equalsIgnoreCase("set") && args.length == 3 && sender.isOp()){
+				if(args[1].equalsIgnoreCase("appkey")){
+					setAppkey(args[2]);
+				}
+				else if (args[1].equalsIgnoreCase("baseurl")){
+					setBaseUrl(args[2]);
+				}
 			}
 			else{
 				showHelp(sender);
@@ -120,6 +128,18 @@ public class telesocialCommandExecutor implements CommandExecutor{
 		}
 		return false;
 	}
+	private void setBaseUrl(String url) {
+		config.set("BaseUrl", url);
+		basic.save(config, "config", null);
+		config = YamlConfiguration.loadConfiguration(new File("plugins/TeleSocial/config.yml"));
+	}
+
+	private void setAppkey(String key) {
+		config.set("AppKey",key);
+		basic.save(config, "config", null);
+		config = YamlConfiguration.loadConfiguration(new File("plugins/TeleSocial/config.yml"));
+	}
+
 	/**
 	 * This method shows the help to the player
 	 * @param p The CommandSender(usually a Player)
@@ -137,7 +157,7 @@ public class telesocialCommandExecutor implements CommandExecutor{
 	 * @param p The Player who started the conference
 	 * @return void
 	 */
-	private boolean startConference(String conference,String networkid, Player p) {
+	private boolean startConference(String conference,String networkid, CommandSender p) {
 		String success = ApiAccess.apiPost("conference", "networkid", p.getName(), null, null);
 		if(success != ""){
 			if(success.split("conference")[0].contains("201")){
@@ -161,14 +181,14 @@ public class telesocialCommandExecutor implements CommandExecutor{
 	 * This method registers the networkID
 	 * @param number The mobile number to register
 	 * @param networkID The networkID to register
-	 * @param p The player to send the registration response to
+	 * @param sender The player to send the registration response to
 	 */
-	private boolean register(String number, String networkID, Player p) {
+	private boolean register(String number, String networkID, CommandSender sender) {
 		number = number.replaceAll("[^0-9]+", "");
 		String success = ApiAccess.apiPost("registrant/", "networkid",networkID,"phone", number);
 		if(success.contains("201")){
-			players.set(p.getName(), networkID);
-			basic.save(players, "players", p);
+			players.set(sender.getName(), networkID);
+			basic.save(players, "players", sender);
 			return true;
 		}
 		else{
@@ -191,11 +211,11 @@ public class telesocialCommandExecutor implements CommandExecutor{
 	/**
 	 * This method adds Player p to the conference conference
 	 * @param conference Name of the conference
-	 * @param p Player to add to conference
+	 * @param sender Player to add to conference
 	 */
-	private boolean joinConference(String conference, Player p){
+	private boolean joinConference(String conference, CommandSender sender){
 		String confID = conferences.get(conference);
-		String success = ApiAccess.apiPost("conference/" + confID, "networkid", players.getString(p.getName()), "action", "add");
+		String success = ApiAccess.apiPost("conference/" + confID, "networkid", players.getString(sender.getName()), "action", "add");
 		if(success != null){
 			int statusIndex = success.indexOf("status\":") + 8;
 			String subStatus =success.substring(statusIndex);
@@ -205,7 +225,7 @@ public class telesocialCommandExecutor implements CommandExecutor{
 				return true;
 			}
 			else{
-				p.sendMessage(pre + "Error: " + status);
+				sender.sendMessage(pre + "Error: " + status);
 				return false;
 			}
 		}
@@ -216,9 +236,9 @@ public class telesocialCommandExecutor implements CommandExecutor{
 	/**
 	 * This method deletes/stops the conference conference
 	 * @param conference The name of the conference
-	 * @param p The Player to send the response to
+	 * @param sender The Player to send the response to
 	 */
-	private boolean deleteConference(String conference, Player p){
+	private boolean deleteConference(String conference, CommandSender sender){
 		String confID = conferences.get(conference);
 		String success = ApiAccess.apiPost("conference/" + confID, "action", "close", null, null);
 		if(success != null){
@@ -227,12 +247,12 @@ public class telesocialCommandExecutor implements CommandExecutor{
 			String[] IDsplit = subStatus.split(",\"conferenceId");
 			String status = IDsplit[0].replaceAll("[^0-9]+", "");
 			if(status.contains("200")){
-				p.sendMessage(pre + "Conference deleted!");
+				sender.sendMessage(pre + "Conference deleted!");
 				conferences.remove(conference);
 				return true;
 			}
 			else{
-				p.sendMessage(pre + "Error: " + status);
+				sender.sendMessage(pre + "Error: " + status);
 			}
 		}
 		return false;
