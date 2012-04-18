@@ -2,8 +2,7 @@ name: TeleSocial
 version: 0.1
 description: TeleSocial!
 author: se1by
-website: http://www.live-craft.net
-
+website: https://www.telesocial.com
 main: me.se1by.TeleSocial.telesocial
 
 commands:

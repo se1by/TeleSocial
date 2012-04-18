@@ -3,12 +3,14 @@ package me.se1by.TeleSocial;
 import java.io.File;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerListener;
 import org.bukkit.event.player.PlayerQuitEvent;
 
-public class pListener extends PlayerListener{
+public class pListener implements Listener{
 	int userOnline = 0;
+	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent e){
 		Player p = e.getPlayer();
 		new YamlConfiguration();
@@ -29,6 +31,7 @@ public class pListener extends PlayerListener{
 			p.sendMessage(msg1);
 		}
 	}
+	@EventHandler
 	public void onPlayerQuit(PlayerQuitEvent e){
 		Player p = e.getPlayer();
 		new YamlConfiguration();
