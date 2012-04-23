@@ -16,6 +16,7 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.protocol.HTTP;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 
@@ -45,7 +46,7 @@ public class ApiAccess {
 		if(key2 != null)
 			nvpairs.add(new BasicNameValuePair(key2, value2));
 		
-		post.setEntity(new UrlEncodedFormEntity(nvpairs));
+		post.setEntity(new UrlEncodedFormEntity(nvpairs, HTTP.UTF_8));
 		HttpResponse response = client.execute(post);
 		BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
 		String line = "";
