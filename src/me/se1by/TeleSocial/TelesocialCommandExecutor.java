@@ -146,7 +146,13 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 				Basic.save(blocked, "blocked", sender);
 				sender.sendMessage(pre + "Player " + args[1] + " blocked!");
 				return true;
-			} else {
+			} else if (args[0].equalsIgnoreCase("unblock") && args.length == 2) {
+				blocked.set(sender.getName() + "." + args[1], null);
+				Basic.save(blocked, "blocked", sender);
+				sender.sendMessage(pre + "Player " + args[1] + " blocked!");
+				return true;
+			}
+			else {
 				showHelp(sender);
 			}
 		} else {
