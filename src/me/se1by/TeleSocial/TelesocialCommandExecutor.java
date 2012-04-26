@@ -13,12 +13,12 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
-public class telesocialCommandExecutor implements CommandExecutor {
+public class TelesocialCommandExecutor implements CommandExecutor {
 	/**
 	 * @author Jonas Seibert
 	 */
-	telesocial plugin;
-	private String chatpre = basic.chatpre;
+	TeleSocial plugin;
+	private String chatpre = Basic.chatpre;
 	String pre = "[TeleSocial] ";
 	private YamlConfiguration players = YamlConfiguration
 			.loadConfiguration(new File("plugins/TeleSocial/players.yml"));
@@ -28,7 +28,7 @@ public class telesocialCommandExecutor implements CommandExecutor {
 			.loadConfiguration(new File("plugins/TeleSocial/blocked.yml"));
 	private HashMap<String, String> conferences;
 
-	public telesocialCommandExecutor(telesocial telesocial) {
+	public TelesocialCommandExecutor(TeleSocial telesocial) {
 		this.plugin = telesocial;
 		conferences = plugin.conference;
 	}
@@ -75,7 +75,7 @@ public class telesocialCommandExecutor implements CommandExecutor {
 				return true;
 			} else if (args[0].equalsIgnoreCase("deregister")) {
 				players.set(sender.getName(), null);
-				basic.save(players, "players", sender);
+				Basic.save(players, "players", sender);
 				sender.sendMessage(pre + "You are unregistered!");
 				return true;
 			} else if (args[0].equalsIgnoreCase("start") && args.length == 2) {
@@ -143,7 +143,7 @@ public class telesocialCommandExecutor implements CommandExecutor {
 				return true;
 			} else if (args[0].equalsIgnoreCase("block") && args.length == 2) {
 				blocked.set(sender.getName() + "." + args[1], true);
-				basic.save(blocked, "blocked", sender);
+				Basic.save(blocked, "blocked", sender);
 				sender.sendMessage(pre + "Player " + args[1] + " blocked!");
 				return true;
 			} else {
@@ -157,14 +157,14 @@ public class telesocialCommandExecutor implements CommandExecutor {
 
 	private void setBaseUrl(String url) {
 		config.set("BaseUrl", url);
-		basic.save(config, "config", null);
+		Basic.save(config, "config", null);
 		config = YamlConfiguration.loadConfiguration(new File(
 				"plugins/TeleSocial/config.yml"));
 	}
 
 	private void setAppkey(String key) {
 		config.set("AppKey", key);
-		basic.save(config, "config", null);
+		Basic.save(config, "config", null);
 		config = YamlConfiguration.loadConfiguration(new File(
 				"plugins/TeleSocial/config.yml"));
 	}
@@ -239,7 +239,7 @@ public class telesocialCommandExecutor implements CommandExecutor {
 				networkID, "phone", number);
 		if (success.contains("201")) {
 			players.set(sender.getName(), networkID);
-			basic.save(players, "players", sender);
+			Basic.save(players, "players", sender);
 			return true;
 		} else {
 			return false;

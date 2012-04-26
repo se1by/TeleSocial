@@ -8,14 +8,14 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
-public class pListener implements Listener{
+public class PlayerListener implements Listener{
 	int userOnline = 0;
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent e){
 		Player p = e.getPlayer();
 		new YamlConfiguration();
 		YamlConfiguration config = YamlConfiguration.loadConfiguration(new File("plugins/TeleSocial/players.yml"));		
-		String msg =userOnline + " other telesocial user are online on your server!";
+		String msg =userOnline + " other TeleSocial user are online on your server!";
 		String msg1 = "Call them with /phone start <conference>!";
 		
 		if(userOnline>1){
@@ -24,7 +24,7 @@ public class pListener implements Listener{
 		}
 		if(config.getString(p.getName()) != null){
 			userOnline++;
-			telesocial.online.put(p.getName(), "their network id");
+			TeleSocial.online.put(p.getName(), "their network id");
 		}
 		else{
 			p.sendMessage("Register yourself with /phone register <YourPhoneNumber> to speak with other user of this server!");
@@ -39,7 +39,7 @@ public class pListener implements Listener{
 
 		if(config.getString(p.getName()) != null){
 			userOnline--;
-			telesocial.online.remove(p.getName());
+			TeleSocial.online.remove(p.getName());
 		}
 	}
 

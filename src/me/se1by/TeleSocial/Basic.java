@@ -6,7 +6,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 
-public class basic {
+public class Basic {
 	static String chatpre = ChatColor.DARK_BLUE + "[TeleSocial] " + ChatColor.GRAY;
 
 	/**

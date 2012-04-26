@@ -3,7 +3,7 @@ version: 0.1
 description: TeleSocial!
 author: se1by
 website: https://www.telesocial.com
-main: me.se1by.TeleSocial.telesocial
+main: me.se1by.TeleSocial.TeleSocial
 
 commands:
     phone:
