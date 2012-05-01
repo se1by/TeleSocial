@@ -151,8 +151,7 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 				Basic.save(blocked, "blocked", sender);
 				sender.sendMessage(pre + "Player " + args[1] + " blocked!");
 				return true;
-			}
-			else {
+			} else {
 				showHelp(sender);
 			}
 		} else {
@@ -356,6 +355,8 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 		boolean started = startConference(sender.getName(),
 				players.getString(sender.getName()), sender);
 		for (String s : call) {
+			if(blocked.getBoolean(s + "." + sender.getName()))
+				continue;
 			boolean success = addToConference(sender.getName(), s);
 			if (!success)
 				sender.sendMessage(pre + "Unable to add player " + s
