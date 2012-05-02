@@ -73,7 +73,7 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 							+ "If you havn't registered that name, you can register another with /phone <name> <number>");
 				}
 				return true;
-			} else if (args[0].equalsIgnoreCase("deregister")) {
+			} else if (args[0].equalsIgnoreCase("unregister")) {
 				players.set(sender.getName(), null);
 				Basic.save(players, "players", sender);
 				sender.sendMessage(pre + "You are unregistered!");
@@ -352,11 +352,15 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 	 *            List of users to call
 	 */
 	private boolean call(CommandSender sender, List<String> call) {
-		boolean started = startConference(sender.getName(),
-				players.getString(sender.getName()), sender);
 		for (String s : call) {
-			if(blocked.getBoolean(s + "." + sender.getName()))
-				continue;
+			if (blocked.getBoolean(s + "." + sender.getName()))
+				call.remove(s);
+		}
+		boolean started = false;
+		if (call.size() > 0)
+			started = startConference(sender.getName(),
+					players.getString(sender.getName()), sender);
+		for (String s : call) {
 			boolean success = addToConference(sender.getName(), s);
 			if (!success)
 				sender.sendMessage(pre + "Unable to add player " + s
