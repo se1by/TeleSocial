@@ -5,13 +5,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
-
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 
 public class TelesocialCommandExecutor implements CommandExecutor {
 	/**
@@ -41,9 +41,9 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 		}
 		if (args.length > 0) {
 			if (args[0].equalsIgnoreCase("register") && args.length == 2) {
-				if (!isRegistered(sender.getName())) {
-					String number = args[1];
-					String networkID = sender.getName();
+				String number = args[1];
+				String networkID = sender.getName();
+				if (!isRegistered(networkID)) {
 					boolean reg = register(number, networkID, sender);
 					if (reg) {
 						sender.sendMessage(pre + "Registration complete!");
@@ -51,6 +51,10 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 						sender.sendMessage(pre + "Registration failed!");
 					}
 				} else {
+					if(networkID + "DISABLED".equals(players.getString(sender.getName())) != null){
+						changeNumber(networkID, number);
+						return true;
+					}
 					sender.sendMessage(pre + "This name is already registered!");
 					sender.sendMessage(pre
 							+ "If you havn't registered that name, you can register another with /phone <name> <number>");
@@ -68,13 +72,19 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 						sender.sendMessage(pre + "Registration failed!");
 					}
 				} else {
+					for(String s : players.getKeys(false)){
+						if(players.getString(s).equalsIgnoreCase(networkID + "DISABLED")){
+							changeNumber(networkID, number);
+							return true;			
+						}
+					}
 					sender.sendMessage(pre + "This name is already registered!");
 					sender.sendMessage(pre
 							+ "If you havn't registered that name, you can register another with /phone <name> <number>");
 				}
 				return true;
 			} else if (args[0].equalsIgnoreCase("unregister")) {
-				players.set(sender.getName(), null);
+				players.set(sender.getName(), players.getString(sender.getName()) + "DISABLED");
 				Basic.save(players, "players", sender);
 				sender.sendMessage(pre + "You are unregistered!");
 				return true;
@@ -138,8 +148,12 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 				return true;
 
 			} else if (args[0].equalsIgnoreCase("list") && args.length == 1) {
-				sender.sendMessage(pre + "Callable Player: "
-						+ listPlayers().toString());
+				String callable = getCallable();
+				if (!"".equals(callable)) {
+					sender.sendMessage(pre + "Callable Player: " + callable);
+				} else {
+					sender.sendMessage(pre + "There is no callable player!");
+				}
 				return true;
 			} else if (args[0].equalsIgnoreCase("block") && args.length == 2) {
 				blocked.set(sender.getName() + "." + args[1], true);
@@ -149,7 +163,7 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 			} else if (args[0].equalsIgnoreCase("unblock") && args.length == 2) {
 				blocked.set(sender.getName() + "." + args[1], null);
 				Basic.save(blocked, "blocked", sender);
-				sender.sendMessage(pre + "Player " + args[1] + " blocked!");
+				sender.sendMessage(pre + "Player " + args[1] + " unblocked!");
 				return true;
 			} else {
 				showHelp(sender);
@@ -158,6 +172,25 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 			showHelp(sender);
 		}
 		return false;
+	}
+
+	/**
+	 * This method generate a string with all callable players
+	 * 
+	 * @return a string with all callable players
+	 */
+	private String getCallable() {
+		JSONObject jsonObject = ApiAccess.apiGet("/registrant?appkey="
+				+ config.getString("AppKey"));
+		jsonObject = (JSONObject) jsonObject.get("NetworkidListResponse");
+		JSONArray jsonArray = (JSONArray) jsonObject.get("networkids");
+		StringBuilder callable = new StringBuilder();
+		Object[] a = jsonArray.toArray();
+		for (Object o : a)
+			callable.append(o + ",");
+		if (callable.toString().endsWith(","))
+			callable.deleteCharAt(callable.length());
+		return callable.toString();
 	}
 
 	private void setBaseUrl(String url) {
@@ -202,26 +235,16 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 	 */
 	private boolean startConference(String conference, String networkid,
 			CommandSender p) {
-		String success = ApiAccess.apiPost("conference", "networkid",
+		JSONObject con = ApiAccess.apiPost("conference", "networkid",
 				p.getName(), null, null);
-		if (success != "") {
-			if (success.split("conference")[0].contains("201")) {
-				int confIndex = success.indexOf("conferenceId\":\"") + 15;
-				String subId = success.substring(confIndex);
-				String[] IDsplit = subId.split("\",\"uri");
-				conferences.put(conference, IDsplit[0]);
+		con = (JSONObject) con.get("ConferenceResponse");
+		if (con != null) {
+			if ("201".equals((String) con.get("status"))) {
+				conferences.put(conference, (String) con.get("conferenceId"));
 				return true;
-			} else if (success.contains("Error"))
-				p.sendMessage(pre + "Unable to create conference");
-			else {
-				int statusIndex = success.indexOf("status\":") + 15;
-				System.out.println(success);
-				System.out.println(statusIndex);
-				String subStatus = success.substring(statusIndex);
-				String[] IDsplit = subStatus.split(",\"conferenceId");
-				IDsplit[0].replaceAll("[^0-9]+", "");
-				p.sendMessage(pre + "Unable to create conference: "
-						+ IDsplit[0]);
+			} else {
+				String error = (String) con.get("status");
+				p.sendMessage(pre + "Unable to create conference: " + error);
 			}
 		}
 		return false;
@@ -240,9 +263,11 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 	private boolean register(String number, String networkID,
 			CommandSender sender) {
 		number = number.replaceAll("[^0-9]+", "");
-		String success = ApiAccess.apiPost("registrant/", "networkid",
+		JSONObject response = ApiAccess.apiPost("registrant/", "networkid",
 				networkID, "phone", number);
-		if (success.contains("201")) {
+		response = (JSONObject) response.get("RegistrationResponse");
+		String status = (String) response.get("status");
+		if ("201".equals(status)) {
 			players.set(sender.getName(), networkID);
 			Basic.save(players, "players", sender);
 			return true;
@@ -259,12 +284,19 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 	 */
 	private boolean isRegistered(String name) {
 		boolean registered = false;
-		String response = ApiAccess.apiPost("registrant/" + name, null, null,
+		JSONObject response = ApiAccess.apiPost("registrant/" + name, null, null,
 				null, null);
-		if (response.contains("200")) {
+		if ("200".equals((String)response.get("status")))
 			registered = true;
-		}
 		return registered;
+	}
+	private boolean changeNumber(String networkID, String number){
+		JSONObject response = ApiAccess.apiPost("registrant/" + networkID + "/" + number, null, null, null, null);
+		response = (JSONObject) response.get("RegistrationResponse");
+		String status = (String) response.get("status");
+		if("202".equals(status))
+			return true;
+		return false;
 	}
 
 	/**
@@ -277,22 +309,19 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 	 */
 	private boolean joinConference(String conference, CommandSender sender) {
 		String confID = conferences.get(conference);
-		String success = ApiAccess.apiPost("conference/" + confID, "networkid",
+		JSONObject response = ApiAccess.apiPost("conference/" + confID, "networkid",
 				players.getString(sender.getName()), "action", "add");
-		if (success != null) {
-			int statusIndex = success.indexOf("status\":") + 8;
-			String subStatus = success.substring(statusIndex);
-			String[] IDsplit = subStatus.split(",\"conferenceId");
-			String status = IDsplit[0].replaceAll("[^0-9]+", "");
-			if (status.contains("202")) {
+		response = (JSONObject) response.get("ConferenceResponse");
+		if (response != null) {
+			String status = (String) response.get("status");
+			if ("202".equals(status))
 				return true;
-			} else {
+			else {
 				sender.sendMessage(pre + "Error: " + status);
 				return false;
 			}
-		} else {
+		} else
 			return false;
-		}
 	}
 
 	/**
@@ -305,41 +334,19 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 	 */
 	private boolean deleteConference(String conference, CommandSender sender) {
 		String confID = conferences.get(conference);
-		String success = ApiAccess.apiPost("conference/" + confID, "action",
+		JSONObject response = ApiAccess.apiPost("conference/" + confID, "action",
 				"close", null, null);
-		if (success != null) {
-			int statusIndex = success.indexOf("status\":") + 8;
-			String subStatus = success.substring(statusIndex);
-			String[] IDsplit = subStatus.split(",\"conferenceId");
-			String status = IDsplit[0].replaceAll("[^0-9]+", "");
+		response = (JSONObject) response.get("ConferenceResponse");
+		if (response != null) {
+			String status = (String) response.get("status");
 			if (status.contains("200")) {
 				sender.sendMessage(pre + "Conference deleted!");
 				conferences.remove(conference);
 				return true;
-			} else {
+			} else 
 				sender.sendMessage(pre + "Error: " + status);
-			}
 		}
 		return false;
-	}
-
-	/**
-	 * This method lists all callable players
-	 * 
-	 * @return StringBuilder
-	 */
-	private StringBuilder listPlayers() {
-		Set<String> registered = players.getKeys(false);
-		StringBuilder callable = new StringBuilder();
-		for (String name : registered) {
-			if (!"".equalsIgnoreCase(name))
-				callable.append(name + ", ");
-		}
-		if (callable.toString().equals(""))// empty list?
-			return callable;
-		int lastSeperator = callable.lastIndexOf(",");
-		callable.deleteCharAt(lastSeperator);
-		return callable;
 	}
 
 	/**
@@ -356,6 +363,8 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 			if (blocked.getBoolean(s + "." + sender.getName()))
 				call.remove(s);
 		}
+		if (call.size() == 0)
+			return false;
 		boolean started = false;
 		if (call.size() > 0)
 			started = startConference(sender.getName(),
@@ -379,20 +388,14 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 	 */
 	private boolean addToConference(String conference, String toAdd) {
 		String confID = conferences.get(conference);
-		String success = ApiAccess.apiPost("conference/" + confID, "networkid",
+		JSONObject response = ApiAccess.apiPost("conference/" + confID, "networkid",
 				players.getString(toAdd), "action", "add");
-		if (success != null) {
-			int statusIndex = success.indexOf("status\":") + 8;
-			String subStatus = success.substring(statusIndex);
-			String[] IDsplit = subStatus.split(",\"conferenceId");
-			String status = IDsplit[0].replaceAll("[^0-9]+", "");
-			if (status.contains("202")) {
+		response = (JSONObject) response.get("ConferenceResponse");
+		if (response != null) {
+			String status = (String) response.get("status");
+			if (status.contains("202"))
 				return true;
-			} else {
-				return false;
-			}
-		} else {
-			return false;
 		}
+		return false;
 	}
 }

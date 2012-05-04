@@ -13,11 +13,15 @@ import org.apache.http.NameValuePair;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 
 
@@ -25,6 +29,7 @@ public class ApiAccess {
 	static YamlConfiguration config = YamlConfiguration.loadConfiguration(new File("plugins/TeleSocial/config.yml"));
 	static String appkey = config.getString("AppKey");
 	static String baseUrl = config.getString("BaseUrl");
+	static JSONParser parser = new JSONParser();
 	/**
 	 * This method sends a post request to the rest api
 	 * @param adress Part of the url(behind baseUrl)
@@ -34,8 +39,8 @@ public class ApiAccess {
 	 * @param value2 Second value
 	 * @return
 	 */
-	public static String apiPost(String adress, String key1, String value1, String key2, String value2) {
-		String response1 = "";
+	public static JSONObject apiPost(String adress, String key1, String value1, String key2, String value2) {
+		JSONObject jsonObject = null;
 		try {
 		HttpClient client = new DefaultHttpClient();
 		HttpPost post = new HttpPost(baseUrl + adress);
@@ -48,11 +53,9 @@ public class ApiAccess {
 		
 		post.setEntity(new UrlEncodedFormEntity(nvpairs, HTTP.UTF_8));
 		HttpResponse response = client.execute(post);
-		BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
-		String line = "";
-		while ((line = rd.readLine()) != null) {
-			response1 += line;
-		}
+		BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
+		String s = br.readLine();
+		jsonObject = (JSONObject) parser.parse(s);
 		} catch (UnsupportedEncodingException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -62,7 +65,34 @@ public class ApiAccess {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-		return response1;
+		return jsonObject;
+	}
+	
+	public static JSONObject apiGet(String adress){
+		JSONObject jsonObject = null;
+		
+		HttpClient client = new DefaultHttpClient();
+		HttpGet method = new HttpGet(baseUrl + adress);
+		
+		try {
+			HttpResponse response = client.execute(method);
+			BufferedReader br = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
+			String s  = br.readLine();
+			jsonObject = (JSONObject) parser.parse(s);
+		} catch (ClientProtocolException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return jsonObject;
 	}
 }
