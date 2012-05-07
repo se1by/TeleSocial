@@ -43,55 +43,33 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 			if (args[0].equalsIgnoreCase("register") && args.length == 2) {
 				String number = args[1];
 				String networkID = sender.getName();
-				if (!isRegistered(networkID)) {
-					boolean reg = register(number, networkID, sender);
-					if (reg) {
-						sender.sendMessage(pre + "Registration complete!");
-					} else {
-						sender.sendMessage(pre + "Registration failed!");
-					}
-				} else {
-					if(networkID + "DISABLED".equals(players.getString(sender.getName())) != null){
-						changeNumber(networkID, number);
-						return true;
-					}
-					sender.sendMessage(pre + "This name is already registered!");
-					sender.sendMessage(pre
-							+ "If you havn't registered that name, you can register another with /phone <name> <number>");
-				}
-				return true;
-			} else if (args[0].equalsIgnoreCase("register") && args.length == 3) {
-				String networkID = args[1];
-				String number = args[2];
 
-				if (!isRegistered(networkID)) {
-					boolean reg = register(number, networkID, sender);
-					if (reg) {
+				if (isRegistered(sender.getName())) {
+					boolean b = changeNumber(networkID, number);
+					if (b)
 						sender.sendMessage(pre + "Registration complete!");
-					} else {
+					else
 						sender.sendMessage(pre + "Registration failed!");
-					}
 				} else {
-					for(String s : players.getKeys(false)){
-						if(players.getString(s).equalsIgnoreCase(networkID + "DISABLED")){
-							changeNumber(networkID, number);
-							return true;			
-						}
-					}
-					sender.sendMessage(pre + "This name is already registered!");
-					sender.sendMessage(pre
-							+ "If you havn't registered that name, you can register another with /phone <name> <number>");
+					boolean b = register(number, networkID, sender);
+					if (b)
+						sender.sendMessage(pre + "Registration complete!");
+					else
+						sender.sendMessage(pre + "Registration failed!");
 				}
 				return true;
 			} else if (args[0].equalsIgnoreCase("unregister")) {
-				players.set(sender.getName(), players.getString(sender.getName()) + "DISABLED");
+				players.set(sender.getName(), false);
 				Basic.save(players, "players", sender);
 				sender.sendMessage(pre + "You are unregistered!");
 				return true;
 			} else if (args[0].equalsIgnoreCase("start") && args.length == 2) {
 				String conference = args[1];
-				String networkID = players.getString(sender.getName());
-				boolean start = startConference(conference, networkID, sender);
+				if (!players.getBoolean(sender.getName())) {
+					sender.sendMessage(pre + "You have to register first!");
+					return true;
+				}
+				boolean start = startConference(conference, sender);
 				if (start) {
 					sender.sendMessage(pre + "Conference " + conference
 							+ " started!");
@@ -111,6 +89,10 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 				return true;
 			} else if (args[0].equalsIgnoreCase("join") && args.length == 2) {
 				String conference = args[1];
+				if (!players.getBoolean(sender.getName())) {
+					sender.sendMessage(pre + "You have to register first!");
+					return true;
+				}
 				boolean join = joinConference(conference, sender);
 				if (join) {
 					sender.sendMessage(pre + "Joining conference " + conference
@@ -121,6 +103,10 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 				return true;
 			} else if (args[0].equalsIgnoreCase("delete") && args.length == 2) {
 				String conference = args[1];
+				if (!players.getBoolean(sender.getName())) {
+					sender.sendMessage(pre + "You have to register first!");
+					return true;
+				}
 				boolean delete = deleteConference(conference, sender);
 				if (delete) {
 					sender.sendMessage(pre + "Conference " + conference
@@ -140,6 +126,10 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 					return true;
 				}
 			} else if (args[0].equalsIgnoreCase("call")) {
+				if (!isRegistered(sender.getName())) {
+					sender.sendMessage(pre + "You have to register first!");
+					return true;
+				}
 				List<String> toCall = new ArrayList<String>(Arrays.asList(args));
 				toCall.remove(0);
 				boolean success = call(sender, toCall);
@@ -148,7 +138,7 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 				return true;
 
 			} else if (args[0].equalsIgnoreCase("list") && args.length == 1) {
-				String callable = getCallable();
+				String callable = getCallable(sender);
 				if (!"".equals(callable)) {
 					sender.sendMessage(pre + "Callable Player: " + callable);
 				} else {
@@ -179,17 +169,20 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 	 * 
 	 * @return a string with all callable players
 	 */
-	private String getCallable() {
-		JSONObject jsonObject = ApiAccess.apiGet("/registrant?appkey="
+	private String getCallable(CommandSender sender) {
+		JSONObject jsonObject = ApiAccess.apiGet("registrant?appkey="
 				+ config.getString("AppKey"));
 		jsonObject = (JSONObject) jsonObject.get("NetworkidListResponse");
 		JSONArray jsonArray = (JSONArray) jsonObject.get("networkids");
 		StringBuilder callable = new StringBuilder();
 		Object[] a = jsonArray.toArray();
 		for (Object o : a)
-			callable.append(o + ",");
-		if (callable.toString().endsWith(","))
-			callable.deleteCharAt(callable.length());
+			if (players.getBoolean(o.toString())
+					&& (!blocked.getBoolean(o.toString() + sender.getName())))
+				callable.append(o + ", ");
+		if (callable.toString().endsWith(", "))
+			callable.deleteCharAt(callable.length() - 1);
+		callable.deleteCharAt(callable.length() - 1);
 		return callable.toString();
 	}
 
@@ -227,24 +220,22 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 	 * 
 	 * @param conference
 	 *            The name of the conference
-	 * @param networkid
-	 *            The networkID(will be the leader of the conference)
 	 * @param p
 	 *            The Player who started the conference
 	 * @return void
 	 */
-	private boolean startConference(String conference, String networkid,
-			CommandSender p) {
+	private boolean startConference(String conference, CommandSender p) {
 		JSONObject con = ApiAccess.apiPost("conference", "networkid",
 				p.getName(), null, null);
 		con = (JSONObject) con.get("ConferenceResponse");
 		if (con != null) {
-			if ("201".equals((String) con.get("status"))) {
+			String status = con.get("status").toString();
+			if ("201".equals(status)) {
 				conferences.put(conference, (String) con.get("conferenceId"));
 				return true;
 			} else {
-				String error = (String) con.get("status");
-				p.sendMessage(pre + "Unable to create conference: " + error);
+				System.out.println(Basic.consolePre + "Error while starting conference " + conference + ":\nStatus: " + status);
+				p.sendMessage(pre + "Unable to create conference: " + status);
 			}
 		}
 		return false;
@@ -265,13 +256,23 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 		number = number.replaceAll("[^0-9]+", "");
 		JSONObject response = ApiAccess.apiPost("registrant/", "networkid",
 				networkID, "phone", number);
+		if (response.containsKey("ErrorResponse")) {
+			sender.sendMessage(pre
+					+ "An error occured: "
+					+ ((JSONObject) response.get("ErrorResponse")).get(
+							"message").toString());
+			return false;
+		}
 		response = (JSONObject) response.get("RegistrationResponse");
-		String status = (String) response.get("status");
+		String status = response.get("status").toString();
 		if ("201".equals(status)) {
-			players.set(sender.getName(), networkID);
+			players.set(sender.getName(), true);
 			Basic.save(players, "players", sender);
 			return true;
 		} else {
+			System.out.println(Basic.consolePre
+					+ "Error while registering networkID " + networkID
+					+ ":\nStatus: " + status);
 			return false;
 		}
 	}
@@ -284,18 +285,27 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 	 */
 	private boolean isRegistered(String name) {
 		boolean registered = false;
-		JSONObject response = ApiAccess.apiPost("registrant/" + name, null, null,
-				null, null);
-		if ("200".equals((String)response.get("status")))
+		JSONObject response = ApiAccess.apiPost("registrant/" + name, "query",
+				"related", null, null);
+		response = (JSONObject) response.get("RegistrantResponse");
+		String status = response.get("status").toString();
+		if ("200".equals(status))
 			registered = true;
 		return registered;
 	}
-	private boolean changeNumber(String networkID, String number){
-		JSONObject response = ApiAccess.apiPost("registrant/" + networkID + "/" + number, null, null, null, null);
+
+	private boolean changeNumber(String networkID, String number) {
+		JSONObject response = ApiAccess.apiPost("registrant/" + networkID + "/"
+				+ number, null, null, null, null);
 		response = (JSONObject) response.get("RegistrationResponse");
-		String status = (String) response.get("status");
-		if("202".equals(status))
+		String status = response.get("status").toString();
+		if ("202".equals(status)){
+			players.set(networkID, true);
+			Basic.save(players, "players", null);
 			return true;
+		}
+		else
+			System.out.println(Basic.consolePre + "Error while changing number of networkID " + networkID + " to " + number + ":\nStatus: " + status);
 		return false;
 	}
 
@@ -309,14 +319,15 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 	 */
 	private boolean joinConference(String conference, CommandSender sender) {
 		String confID = conferences.get(conference);
-		JSONObject response = ApiAccess.apiPost("conference/" + confID, "networkid",
-				players.getString(sender.getName()), "action", "add");
+		JSONObject response = ApiAccess.apiPost("conference/" + confID,
+				"networkid", sender.getName(), "action", "add");
 		response = (JSONObject) response.get("ConferenceResponse");
 		if (response != null) {
-			String status = (String) response.get("status");
+			String status = response.get("status").toString();
 			if ("202".equals(status))
 				return true;
 			else {
+				System.out.println(Basic.consolePre + "Error while joining conference " + conference + ":\nStatus: " + status);
 				sender.sendMessage(pre + "Error: " + status);
 				return false;
 			}
@@ -334,17 +345,19 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 	 */
 	private boolean deleteConference(String conference, CommandSender sender) {
 		String confID = conferences.get(conference);
-		JSONObject response = ApiAccess.apiPost("conference/" + confID, "action",
-				"close", null, null);
+		JSONObject response = ApiAccess.apiPost("conference/" + confID,
+				"action", "close", null, null);
 		response = (JSONObject) response.get("ConferenceResponse");
 		if (response != null) {
-			String status = (String) response.get("status");
-			if (status.contains("200")) {
+			String status = response.get("status").toString();
+			if ("200".equals(status)) {
 				sender.sendMessage(pre + "Conference deleted!");
 				conferences.remove(conference);
 				return true;
-			} else 
+			} else{
+				System.out.println(Basic.consolePre + "Error while deleting conference " + conference + ":\nStatus: " + status);
 				sender.sendMessage(pre + "Error: " + status);
+			}
 		}
 		return false;
 	}
@@ -362,14 +375,19 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 		for (String s : call) {
 			if (blocked.getBoolean(s + "." + sender.getName()))
 				call.remove(s);
+			if (!players.getBoolean(s))
+				call.remove(s);
 		}
 		if (call.size() == 0)
 			return false;
 		boolean started = false;
 		if (call.size() > 0)
-			started = startConference(sender.getName(),
-					players.getString(sender.getName()), sender);
+			started = startConference(sender.getName(), sender);
 		for (String s : call) {
+			if (!isRegistered(s)) {
+				sender.sendMessage(pre + s + " has to register first!");
+				continue;
+			}
 			boolean success = addToConference(sender.getName(), s);
 			if (!success)
 				sender.sendMessage(pre + "Unable to add player " + s
@@ -388,13 +406,17 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 	 */
 	private boolean addToConference(String conference, String toAdd) {
 		String confID = conferences.get(conference);
-		JSONObject response = ApiAccess.apiPost("conference/" + confID, "networkid",
-				players.getString(toAdd), "action", "add");
+		JSONObject response = ApiAccess.apiPost("conference/" + confID,
+				"networkid", toAdd, "action", "add");
 		response = (JSONObject) response.get("ConferenceResponse");
 		if (response != null) {
-			String status = (String) response.get("status");
-			if (status.contains("202"))
+			String status = response.get("status").toString();
+			if ("202".equals(status))
 				return true;
+			else
+				System.out.println(Basic.consolePre + "Error while adding "
+						+ toAdd + " to conference " + conference
+						+ ":\nStatus: " + status);
 		}
 		return false;
 	}

@@ -8,6 +8,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 public class Basic {
 	static String chatpre = ChatColor.DARK_BLUE + "[TeleSocial] " + ChatColor.GRAY;
+	static String consolePre = "[TeleSocial] ";
 
 	/**
 	 * This method saves a YamlConfiguration
