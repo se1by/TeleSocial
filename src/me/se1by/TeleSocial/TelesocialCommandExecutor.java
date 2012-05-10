@@ -135,6 +135,8 @@ public class TelesocialCommandExecutor implements CommandExecutor {
 				boolean success = call(sender, toCall);
 				if (!success)
 					sender.sendMessage(pre + "Unable to create call!");
+				else
+					sender.sendMessage(pre + "Calling " + toCall.toString().replaceAll("\\[", "").replaceAll("\\]", ""));
 				return true;
 
 			} else if (args[0].equalsIgnoreCase("list") && args.length == 1) {
